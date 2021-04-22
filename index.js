@@ -1,64 +1,37 @@
-const express = require('express')
-const app = express() 
-const { Sequelize, DataTypes } = require('sequelize');
-const Tasks = require('./models/task')
-//conexão de banco de dados Sqlite
-const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: 'database-task.db'
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const Sequelize = require('sequelize');
+const basename = path.basename(__filename);
+const env = process.env.NODE_ENV || 'development';
+const config = require(__dirname + '/../config/config.json')[env];
+const db = {};
+
+let sequelize;
+if (config.use_env_variable) {
+  sequelize = new Sequelize(process.env[config.use_env_variable], config);
+} else {
+  sequelize = new Sequelize(config.database, config.username, config.password, config);
+}
+
+fs
+  .readdirSync(__dirname)
+  .filter(file => {
+    return (file.indexOf('.') !== 0) && (file !== basename) && (file.slice(-3) === '.js');
+  })
+  .forEach(file => {
+    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
+    db[model.name] = model;
   });
 
-const tasks= Tasks(sequelize, DataTypes)
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
+});
 
-app.set('view engine','ejs')
-app.use(express.json())
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
-// List tasks
-app.get('/tasks',async(req,res) =>{
-
-const allTasks = await tasks.findAll()
-//allTasks = await sequelize.query('SELECT * FROM Tasks')
-    res.json({action: tasks.id, name: tasks.name})
-})
-
-//Show tasks
-
-app.get('/tasks/:id', async (req,res) =>{
-    const taskId = req.params.id
-    const task = await tasks.findByPk(taskId)
-    //res.render('tarefa',{id: task.id, name: task.name})
-    res.json({action:task.id, name: task.name})
-})
-
-// Create task
-app.post('/tasks', async(req, res) => {
-    const taskId = req.params.id
-    const body = req.body
-    const Createtasks = await tasks.create({ id: req.body.id,  name: req.body.name})
-    res.json({ action:'Createtasks', Createtasks})
-
-  })
-
-// Update task
-
-app.put('/tasks/:id', (req, res) => {
-    const body = req.body
-    task.update({ id: body.id,
-        name: body.name
-    });        
-    res.send({ action:'Task update', updatetask:updatetask })
-  })
-
-  // Delete task
-  app.delete('/tasks/:id', async (req, res) => {
-    const taskId = req.params.id
-    const task = await tasks.destroy(taskId)
-    if (task) {
-      await task.destroy()
-    }
-    res.send({ action: 'Deleting task', taskId: taskId })
-  })
-
-app.listen(3000,() =>{
-    console.log('inciando o servidor express')
-})
+module.exports = db;
